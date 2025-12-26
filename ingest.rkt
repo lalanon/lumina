@@ -82,9 +82,47 @@
 
   (report-outcomes outcomes config))
 
+(define (file-extension p)
+  (define s (path->string p))
+  (define parts (string-split s "."))
+  (cond
+    [(< (length parts) 2) ""]
+    [else (string-downcase (last parts))]))
+
+
 (define (discover-files paths recursive? follow-symlinks?)
-  ;; TODO: walk filesystem, ignore hidden files
-  '())
+  (define results '())
+
+  (define (visit-path p)
+    (cond
+      ;; Ignore hidden files/directories
+      [(hidden-path? p)
+       (void)]
+
+      ;; Regular file
+      [(file-exists? p)
+       (define size (file-size p))
+       (define ext (file-extension p))
+       (set! results
+             (cons (discovered-file p size ext)
+                   results))]
+
+      ;; Directory
+      [(directory-exists? p)
+       (when recursive?
+         (for ([child (in-list (directory-list p))])
+           (visit-path (build-path p child))))]
+
+      ;; Everything else (symlink, socket, etc.)
+      [else
+       (void)]))
+
+  ;; Entry point
+  (for ([p (in-list paths)])
+    (visit-path p))
+
+  (reverse results))
+
 
 (define (filter-candidates discovered)
   ;; TODO: filter by extension, size

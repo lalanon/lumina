@@ -1,0 +1,16 @@
+# Racket backup files
+*.rkt~
+
+# Racket build artifacts
+compiled/
+*.zo
+
+# SQLite databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Editor / OS junk
+.DS_Store
+Thumbs.db
+
