@@ -123,10 +123,35 @@
 
   (reverse results))
 
+(define allowed-extensions
+  '("pdf" "epub" "mobi" "azw" "azw3" "djvu" "cbz" "cbr"))
+
+(define (allowed-extension? ext)
+  (member ext allowed-extensions))
+
 
 (define (filter-candidates discovered)
-  ;; TODO: filter by extension, size
-  discovered)
+  (define results '())
+
+  (for ([df (in-list discovered)])
+    (define ext (discovered-file-extension df))
+    (define size (discovered-file-size df))
+
+    (cond
+      ;; Reject zero-byte files
+      [(zero? size)
+       (void)]
+
+      ;; Reject unknown extensions
+      [(not (allowed-extension? ext))
+       (void)]
+
+      ;; Accept candidate
+      [else
+       (set! results (cons df results))]))
+
+  (reverse results))
+
 
 (define (hash-files candidates)
   ;; TODO: stream SHA-256 hashes
