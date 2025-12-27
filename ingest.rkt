@@ -217,13 +217,33 @@
 
   (reverse results))
 
+(define (ensure-schema! conn)
+  (query-exec conn
+    "CREATE TABLE IF NOT EXISTS files (
+       hash TEXT PRIMARY KEY,
+       hash_algo TEXT NOT NULL,
+       size_bytes INTEGER NOT NULL,
+       format TEXT NOT NULL,
+       ingested_at TEXT NOT NULL
+     );")
+
+  (query-exec conn
+    "CREATE TABLE IF NOT EXISTS file_sources (
+       id INTEGER PRIMARY KEY AUTOINCREMENT,
+       hash TEXT NOT NULL,
+       source_path TEXT NOT NULL,
+       original_filename TEXT,
+       seen_at TEXT NOT NULL,
+       FOREIGN KEY (hash) REFERENCES files(hash)
+     );"))
+
 
 (define (open-db db-path)
   (sqlite3-connect #:database db-path
                    #:mode 'create))
 
 (define (hash-exists? conn hash)
-  (query-value
+  (query-maybe-value
    conn
    "SELECT 1 FROM files WHERE hash = ? LIMIT 1"
    hash))
@@ -255,6 +275,7 @@
          (open-db (ingest-config-db-path config))))
 
   (when conn
+    (ensure-schema! conn)
     (query-exec conn "BEGIN"))
 
   (for ([hf (in-list hashed-files)])
