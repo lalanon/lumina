@@ -14,3 +14,7 @@ compiled/
 .DS_Store
 Thumbs.db
 
+# Emacs temporary files
+*~
+\#*\#
+.\#*

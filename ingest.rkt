@@ -1,11 +1,11 @@
 #lang racket
 (require racket/cmdline
-        racket/path
-        racket/file
-        racket/list
-        racket/string
-        file/sha1
-        db)
+         racket/path
+         racket/file
+         racket/list
+         racket/string
+         file/sha1
+         db)
 
 (struct discovered-file (path size extension)
   #:transparent)
@@ -38,17 +38,17 @@
    #:program "lumina ingest"
    #:once-each
    [("--no-recursive") "Do not recurse into directories"
-    (set! recursive? #f)]
+                       (set! recursive? #f)]
    [("--follow-symlinks") "Follow symbolic links"
-    (set! follow-symlinks? #t)]
+                          (set! follow-symlinks? #t)]
    [("--dry-run") "Do not write to the database"
-    (set! dry-run? #t)]
+                  (set! dry-run? #t)]
    [("--db") path "Path to SQLite database"
-    (set! db-path path)]
+             (set! db-path path)]
    [("--verbose") "Verbose output"
-    (set! verbose? #t)]
+                  (set! verbose? #t)]
    [("--json") "JSON output"
-    (set! json? #t)]
+               (set! json? #t)]
    #:args input-paths
    (set! paths input-paths))
 
@@ -219,7 +219,7 @@
 
 (define (ensure-schema! conn)
   (query-exec conn
-    "CREATE TABLE IF NOT EXISTS files (
+              "CREATE TABLE IF NOT EXISTS files (
        hash TEXT PRIMARY KEY,
        hash_algo TEXT NOT NULL,
        size_bytes INTEGER NOT NULL,
@@ -228,14 +228,56 @@
      );")
 
   (query-exec conn
-    "CREATE TABLE IF NOT EXISTS file_sources (
+              "CREATE TABLE IF NOT EXISTS file_sources (
        id INTEGER PRIMARY KEY AUTOINCREMENT,
        hash TEXT NOT NULL,
        source_path TEXT NOT NULL,
        original_filename TEXT,
        seen_at TEXT NOT NULL,
        FOREIGN KEY (hash) REFERENCES files(hash)
-     );"))
+     );")
+  (query-exec conn
+              "CREATE TABLE IF NOT EXISTS operations_log (
+     id INTEGER PRIMARY KEY AUTOINCREMENT,
+     occurred_at TEXT NOT NULL,
+     phase TEXT NOT NULL,
+     operation TEXT NOT NULL,
+     file_hash TEXT,
+     details TEXT,
+     FOREIGN KEY (file_hash) REFERENCES files(hash)
+   );"))
+
+(define (ensure-indexes! conn)
+  (query-exec conn
+              "CREATE INDEX IF NOT EXISTS idx_file_sources_hash
+     ON file_sources(hash);")
+
+  (query-exec conn
+              "CREATE INDEX IF NOT EXISTS idx_file_sources_source_path
+     ON file_sources(source_path);")
+
+  (query-exec conn
+              "CREATE INDEX IF NOT EXISTS idx_files_format
+     ON files(format);")
+  (query-exec conn
+              "CREATE INDEX IF NOT EXISTS idx_operations_log_file_hash
+   ON operations_log(file_hash);")
+
+  (query-exec conn
+              "CREATE INDEX IF NOT EXISTS idx_operations_log_phase
+   ON operations_log(phase);")
+  )
+
+(define (log-operation! conn phase operation file-hash details)
+  (query-exec
+   conn
+   "INSERT INTO operations_log
+      (occurred_at, phase, operation, file_hash, details)
+    VALUES (CURRENT_TIMESTAMP, ?, ?, ?, ?)"
+   phase
+   operation
+   file-hash
+   details))
 
 
 (define (open-db db-path)
@@ -270,17 +312,27 @@
 (define (process-ingest hashed-files config)
   (define outcomes '())
 
+  ;; Open DB only if not dry-run
   (define conn
     (and (not (ingest-config-dry-run? config))
          (open-db (ingest-config-db-path config))))
 
+  ;; Prepare DB if needed
   (when conn
     (ensure-schema! conn)
+    (ensure-indexes! conn)
     (query-exec conn "BEGIN"))
 
   (for ([hf (in-list hashed-files)])
     (with-handlers ([exn:fail?
                      (lambda (e)
+                       (when conn
+                         (log-operation!
+                          conn
+                          "ingest"
+                          "error"
+                          (hashed-file-hash hf)
+                          (exn-message e)))
                        (set! outcomes
                              (cons (ingest-outcome
                                     (hashed-file-hash hf)
@@ -288,8 +340,17 @@
                                     (exn-message e))
                                    outcomes)))])
       (cond
-        ;; Hashing failed earlier
+        ;; --------------------------------------------------
+        ;; Case 1: hashing failed earlier
+        ;; --------------------------------------------------
         [(not (hashed-file-hash hf))
+         (when conn
+           (log-operation!
+            conn
+            "ingest"
+            "hash_failed"
+            #f
+            (path->string (hashed-file-path hf))))
          (set! outcomes
                (cons (ingest-outcome
                       #f
@@ -297,7 +358,9 @@
                       "Hashing failed")
                      outcomes))]
 
-        ;; Dry-run: read-only
+        ;; --------------------------------------------------
+        ;; Case 2: dry-run (read-only)
+        ;; --------------------------------------------------
         [(ingest-config-dry-run? config)
          (define exists?
            (hash-exists?
@@ -311,13 +374,29 @@
                       "Dry-run")
                      outcomes))]
 
-        ;; Real ingest
+        ;; --------------------------------------------------
+        ;; Case 3: real ingest
+        ;; --------------------------------------------------
         [else
          (define exists?
            (hash-exists? conn (hashed-file-hash hf)))
 
          (unless exists?
-           (insert-file! conn hf))
+           (insert-file! conn hf)
+           (log-operation!
+            conn
+            "ingest"
+            "ingest_new"
+            (hashed-file-hash hf)
+            (path->string (hashed-file-path hf))))
+
+         (when exists?
+           (log-operation!
+            conn
+            "ingest"
+            "ingest_duplicate"
+            (hashed-file-hash hf)
+            (path->string (hashed-file-path hf))))
 
          (insert-file-source! conn hf)
 
@@ -328,12 +407,12 @@
                       "Ingested")
                      outcomes))])))
 
+  ;; Commit and close DB
   (when conn
     (query-exec conn "COMMIT")
     (disconnect conn))
 
   (reverse outcomes))
-
 
 (define (report-outcomes outcomes config)
   (define new 0)
