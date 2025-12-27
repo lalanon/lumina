@@ -4,7 +4,8 @@
         racket/file
         racket/list
         racket/string
-        file/sha1)
+        file/sha1
+        db)
 
 (struct discovered-file (path size extension)
   #:transparent)
@@ -190,10 +191,101 @@
 
   (reverse results))
 
+(define (open-db db-path)
+  (sqlite3-connect #:database db-path
+                   #:mode 'create))
+
+(define (hash-exists? conn hash)
+  (query-value
+   conn
+   "SELECT 1 FROM files WHERE hash = ? LIMIT 1"
+   hash))
+
+(define (insert-file! conn hf)
+  (query-exec
+   conn
+   "INSERT INTO files (hash, hash_algo, size_bytes, format, ingested_at)
+    VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)"
+   (hashed-file-hash hf)
+   (hashed-file-algo hf)
+   (hashed-file-size hf)
+   (hashed-file-format hf)))
+
+(define (insert-file-source! conn hf)
+  (query-exec
+   conn
+   "INSERT INTO file_sources (hash, source_path, original_filename, seen_at)
+    VALUES (?, ?, ?, CURRENT_TIMESTAMP)"
+   (hashed-file-hash hf)
+   (path->string (hashed-file-path hf))
+   (path->string (file-name-from-path (hashed-file-path hf)))))
 
 (define (process-ingest hashed-files config)
-  ;; TODO: read/write DB unless dry-run
-  '())
+  (define outcomes '())
+
+  (define conn
+    (and (not (ingest-config-dry-run? config))
+         (open-db (ingest-config-db-path config))))
+
+  (when conn
+    (query-exec conn "BEGIN"))
+
+  (for ([hf (in-list hashed-files)])
+    (with-handlers ([exn:fail?
+                     (lambda (e)
+                       (set! outcomes
+                             (cons (ingest-outcome
+                                    (hashed-file-hash hf)
+                                    'failed
+                                    (exn-message e))
+                                   outcomes)))])
+      (cond
+        ;; Hashing failed earlier
+        [(not (hashed-file-hash hf))
+         (set! outcomes
+               (cons (ingest-outcome
+                      #f
+                      'failed
+                      "Hashing failed")
+                     outcomes))]
+
+        ;; Dry-run: read-only
+        [(ingest-config-dry-run? config)
+         (define exists?
+           (hash-exists?
+            (open-db (ingest-config-db-path config))
+            (hashed-file-hash hf)))
+
+         (set! outcomes
+               (cons (ingest-outcome
+                      (hashed-file-hash hf)
+                      (if exists? 'duplicate 'new)
+                      "Dry-run")
+                     outcomes))]
+
+        ;; Real ingest
+        [else
+         (define exists?
+           (hash-exists? conn (hashed-file-hash hf)))
+
+         (unless exists?
+           (insert-file! conn hf))
+
+         (insert-file-source! conn hf)
+
+         (set! outcomes
+               (cons (ingest-outcome
+                      (hashed-file-hash hf)
+                      (if exists? 'duplicate 'new)
+                      "Ingested")
+                     outcomes))])))
+
+  (when conn
+    (query-exec conn "COMMIT")
+    (disconnect conn))
+
+  (reverse outcomes))
+
 
 (define (report-outcomes outcomes config)
   ;; TODO: print summary / JSON
