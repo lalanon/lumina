@@ -60,8 +60,19 @@
                  verbose?
                  json?))
 
+(define (expand-user-path p)
+  (cond
+    [(and (string? p)
+          (regexp-match? #rx"^~(/|$)" p))
+     (build-path (find-system-path 'home-dir)
+                 (substring p 2))]
+    [else p]))
+
 (define (normalize-input-path p)
-  (simplify-path (path->complete-path p)))
+  (define expanded (expand-user-path p))
+  (simplify-path
+   (path->complete-path expanded)))
+
 
 (define (run-ingest config)
   (define input-paths
@@ -161,13 +172,28 @@
     #:mode 'binary))
 
 
+
+
 (define (hash-files candidates)
+  (define total (length candidates))
+  (define count 0)
   (define results '())
 
+  (when (> total 0)
+    (printf "Hashing ~a files...\n" total)
+    (flush-output))
+
   (for ([df (in-list candidates)])
+    (set! count (add1 count))
+
+    ;; Progress every 50 files
+    (when (or (= count total)
+              (= (modulo count 50) 0))
+      (printf "  hashed ~a / ~a\n" count total)
+      (flush-output))
+
     (with-handlers ([exn:fail?
                      (lambda (e)
-                       ;; Skip file on error, continue with others
                        (set! results
                              (cons (hashed-file
                                     #f
@@ -190,6 +216,7 @@
                   results))))
 
   (reverse results))
+
 
 (define (open-db db-path)
   (sqlite3-connect #:database db-path
@@ -288,14 +315,33 @@
 
 
 (define (report-outcomes outcomes config)
-  ;; TODO: print summary / JSON
-  (void))
+  (define new 0)
+  (define dup 0)
+  (define failed 0)
+
+  (for ([o (in-list outcomes)])
+    (case (ingest-outcome-status o)
+      [(new) (set! new (add1 new))]
+      [(duplicate) (set! dup (add1 dup))]
+      [(failed) (set! failed (add1 failed))]
+      [else (void)]))
+
+  (printf "\nIngest summary:\n")
+  (printf "  new:       ~a\n" new)
+  (printf "  duplicate: ~a\n" dup)
+  (printf "  failed:    ~a\n" failed)
+  (flush-output))
+
 
 (define (hidden-path? p)
-  (define name (path->string (file-name-from-path p)))
-  (and name
-       (positive? (string-length name))
-       (char=? (string-ref name 0) #\.)))
+  (define fname (file-name-from-path p))
+  (cond
+    [(not fname) #f] ;; root or no filename → not hidden
+    [else
+     (define name (path->string fname))
+     (and (positive? (string-length name))
+          (char=? (string-ref name 0) #\.))]))
+
 
 
 
