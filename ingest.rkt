@@ -3,7 +3,8 @@
         racket/path
         racket/file
         racket/list
-        racket/string)
+        racket/string
+        file/sha1)
 
 (struct discovered-file (path size extension)
   #:transparent)
@@ -152,10 +153,43 @@
 
   (reverse results))
 
+(define (sha256-file p)
+  (call-with-input-file p
+    (lambda (in)
+      (sha256-bytes in))
+    #:mode 'binary))
+
 
 (define (hash-files candidates)
-  ;; TODO: stream SHA-256 hashes
-  '())
+  (define results '())
+
+  (for ([df (in-list candidates)])
+    (with-handlers ([exn:fail?
+                     (lambda (e)
+                       ;; Skip file on error, continue with others
+                       (set! results
+                             (cons (hashed-file
+                                    #f
+                                    "sha256"
+                                    (discovered-file-size df)
+                                    (discovered-file-extension df)
+                                    (discovered-file-path df))
+                                   results)))])
+      (define p (discovered-file-path df))
+      (define digest-bytes (sha256-file p))
+      (define digest-hex (bytes->hex-string digest-bytes))
+
+      (set! results
+            (cons (hashed-file
+                   digest-hex
+                   "sha256"
+                   (discovered-file-size df)
+                   (discovered-file-extension df)
+                   p)
+                  results))))
+
+  (reverse results))
+
 
 (define (process-ingest hashed-files config)
   ;; TODO: read/write DB unless dry-run
