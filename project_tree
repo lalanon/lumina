@@ -1,0 +1,25 @@
+.
+├── db
+│   └── schema_identify.sql
+├── docs
+│   └── organize_rules_README.md
+├── ingest.rkt
+├── ingest.rkt~
+├── lumina.db
+├── organize_rules.json
+├── organize_rules.schema.json
+├── project_tree
+├── prompts
+│   ├── identify_system.txt
+│   └── identify_user.txt
+├── README.md
+├── schemas
+│   ├── allowed_tags.json
+│   ├── allowed_tags.schema.json
+│   ├── identify_output.schema.json
+│   ├── taxonomy.json
+│   └── taxonomy.schema.json
+├── test.db
+└── TODO.md
+
+5 directories, 18 files
