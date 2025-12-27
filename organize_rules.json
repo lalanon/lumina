@@ -1,0 +1,84 @@
+{
+  "version": "1.0",
+  "library_root": "/Library",
+
+  "path_templates": {
+    "default": "{root}/{taxonomy_path}/{author}/{title}",
+    "fiction": "{root}/{taxonomy_path}/{author}/{series}/{title}",
+    "non_fiction": "{root}/{taxonomy_path}/{author}/{title}"
+  },
+
+  "filename_templates": {
+    "default": "{title} - {author}",
+    "series_volume": "{series_index} - {title}"
+  },
+
+  "subject_overrides": [
+    {
+      "match": {
+        "taxonomy_prefix": "Music"
+      },
+      "path_template": "{root}/Music/{taxonomy_rest}/{author}/{title}"
+    },
+
+    {
+      "match": {
+        "taxonomy_prefix": "Computers/Programming"
+      },
+      "path_template": "{root}/Programming/{taxonomy_rest}/{author}/{title}"
+    }
+  ],
+
+  "series_rules": [
+    {
+      "name": "fiction_series_grouping",
+      "match": {
+        "work_type": "book",
+        "taxonomy_prefix": "Literature (Fiction)"
+      },
+      "behavior": "group_by_series"
+    },
+
+    {
+      "name": "ignore_for_dummies",
+      "match": {
+        "series_name_contains": "For Dummies"
+      },
+      "behavior": "ignore_series"
+    },
+
+    {
+      "name": "ignore_programming_series",
+      "match": {
+        "taxonomy_prefix": "Computers/Programming"
+      },
+      "behavior": "ignore_series"
+    }
+  ],
+
+  "language_rules": {
+    "primary_language": "en",
+    "secondary_language_subdir": true,
+    "secondary_language_format": "{language}"
+  },
+
+  "format_rules": {
+    "preferred_order": ["epub", "pdf", "mobi", "djvu"],
+    "keep_multiple": ["epub", "pdf"],
+    "discard_lower_priority": false
+  },
+
+  "normalization": {
+    "unicode": "NFC",
+    "replace_unsafe_chars": "_",
+    "collapse_whitespace": true,
+    "max_path_length": 240
+  },
+
+  "conflict_resolution": {
+    "on_path_exists": "compare_hash",
+    "on_same_hash": "skip",
+    "on_different_hash": "suffix",
+    "suffix_format": " ({n})"
+  }
+}

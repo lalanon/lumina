@@ -1,0 +1,228 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://lumina.example/schema/organize_rules.json",
+  "title": "Lumina Organize Rules",
+  "type": "object",
+  "required": [
+    "version",
+    "library_root",
+    "path_templates",
+    "filename_templates",
+    "normalization",
+    "conflict_resolution"
+  ],
+  "additionalProperties": false,
+
+  "properties": {
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+$"
+    },
+
+    "library_root": {
+      "type": "string",
+      "minLength": 1
+    },
+
+    "path_templates": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+
+    "filename_templates": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+
+    "subject_overrides": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/subjectOverride" }
+    },
+
+    "series_rules": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/seriesRule" }
+    },
+
+    "language_rules": {
+      "$ref": "#/$defs/languageRules"
+    },
+
+    "format_rules": {
+      "$ref": "#/$defs/formatRules"
+    },
+
+    "normalization": {
+      "$ref": "#/$defs/normalizationRules"
+    },
+
+    "conflict_resolution": {
+      "$ref": "#/$defs/conflictResolution"
+    }
+  },
+
+  "$defs": {
+    "subjectOverride": {
+      "type": "object",
+      "required": ["match", "path_template"],
+      "additionalProperties": false,
+      "properties": {
+        "match": {
+          "$ref": "#/$defs/subjectMatch"
+        },
+        "path_template": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+
+    "subjectMatch": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "taxonomy_prefix": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": ["taxonomy_prefix"]
+    },
+
+    "seriesRule": {
+      "type": "object",
+      "required": ["name", "match", "behavior"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "match": {
+          "$ref": "#/$defs/seriesMatch"
+        },
+        "behavior": {
+          "type": "string",
+          "enum": ["group_by_series", "ignore_series"]
+        }
+      }
+    },
+
+    "seriesMatch": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "work_type": {
+          "type": "string",
+          "enum": ["book", "magazine", "comic"]
+        },
+        "taxonomy_prefix": {
+          "type": "string"
+        },
+        "series_name_contains": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+
+    "languageRules": {
+      "type": "object",
+      "required": ["primary_language", "secondary_language_subdir"],
+      "additionalProperties": false,
+      "properties": {
+        "primary_language": {
+          "type": "string",
+          "pattern": "^[a-z]{2}$"
+        },
+        "secondary_language_subdir": {
+          "type": "boolean"
+        },
+        "secondary_language_format": {
+          "type": "string"
+        }
+      }
+    },
+
+    "formatRules": {
+      "type": "object",
+      "required": ["preferred_order", "keep_multiple"],
+      "additionalProperties": false,
+      "properties": {
+        "preferred_order": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "keep_multiple": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "discard_lower_priority": {
+          "type": "boolean"
+        }
+      }
+    },
+
+    "normalizationRules": {
+      "type": "object",
+      "required": ["replace_unsafe_chars"],
+      "additionalProperties": false,
+      "properties": {
+        "unicode": {
+          "type": "string",
+          "enum": ["NFC", "NFD", "NFKC", "NFKD"]
+        },
+        "replace_unsafe_chars": {
+          "type": "string",
+          "minLength": 1
+        },
+        "collapse_whitespace": {
+          "type": "boolean"
+        },
+        "max_path_length": {
+          "type": "integer",
+          "minimum": 50
+        }
+      }
+    },
+
+    "conflictResolution": {
+      "type": "object",
+      "required": ["on_path_exists", "on_same_hash", "on_different_hash"],
+      "additionalProperties": false,
+      "properties": {
+        "on_path_exists": {
+          "type": "string",
+          "enum": ["compare_hash", "skip", "error"]
+        },
+        "on_same_hash": {
+          "type": "string",
+          "enum": ["skip"]
+        },
+        "on_different_hash": {
+          "type": "string",
+          "enum": ["suffix", "error"]
+        },
+        "suffix_format": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

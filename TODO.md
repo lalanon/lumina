@@ -50,6 +50,7 @@ This document tracks planned work based on current architecture decisions.
 - [ ] Integrate organize audit logging
 - [ ] Implement organize CLI command
 - [ ] Support rebuild after taxonomy changes
+- [ ] Generate user manual for `organize_rules.json` (rules, precedence, examples)
 
 ---
 
