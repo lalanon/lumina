@@ -1,0 +1,30 @@
+IDENTIFY DOCUMENT
+
+Hash: {{HASH}}
+Format: {{FORMAT}}
+
+SNIPPET INFORMATION:
+- Snippet size: {{SNIPPET_BYTES}} bytes
+- Snippet format: {{FORMAT}}
+- WARNING: This is NOT a complete file.
+  It is raw, partial data extracted from the beginning of the document.
+  Treat it as incomplete evidence.
+
+FILENAME (UNRELIABLE):
+{{FILENAME}}
+
+FILE CONTENT SNIPPET (BASE64 OR TEXT):
+{{SNIPPET_DATA}}
+
+ALLOWED TAXONOMY PATHS:
+{{TAXONOMY_JSON}}
+
+ALLOWED TAG PREFIXES:
+{{ALLOWED_TAGS_JSON}}
+
+REQUIRED OUTPUT:
+- Return a single JSON object
+- Must conform EXACTLY to the provided Identify Output Schema
+- Use null for unknown values
+- Include warnings where appropriate
+
