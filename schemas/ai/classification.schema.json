@@ -1,0 +1,28 @@
+{
+  "type": "object",
+  "required": ["results"],
+  "properties": {
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["hash", "document_type", "confidence"],
+        "properties": {
+          "hash": { "type": "string" },
+          "document_type": {
+            "type": "string",
+            "enum": ["book", "magazine", "comic", "non-book"]
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0
+          },
+          "notes": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

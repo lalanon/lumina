@@ -1,65 +1,122 @@
 #lang racket
-
 (require racket/cmdline
+         racket/list
+         racket/random
+         racket/file
+         racket/string
+         json
          db
-         "utils/sql.rkt")
+         "utils/sql.rkt"
+         "utils/ai_config.rkt"
+         "utils/ai_client_gemini.rkt")
 
-;; --------------------------------------------------
-;; Configuration
-;; --------------------------------------------------
+;; -------------------------------
+;; CLI
+;; -------------------------------
 
-(struct classify-config (db-path dry-run? verbose?)
-  #:transparent)
+(define limit #f)
+(define random? #f)
+(define dry-run? #f)
+(define batch-size 5)
+(define verbose? #f)
 
-(define (parse-classify-args)
-  (define db-path "lumina.db")
-  (define dry-run? #f)
-  (define verbose? #f)
+(command-line
+ #:program "lumina classify"
+ #:once-each
+ [("--limit") n "Limit documents" (set! limit (string->number n))]
+ [("--random") "Random selection" (set! random? #t)]
+ [("--dry-run") "No DB writes" (set! dry-run? #t)]
+ [("--batch-size") n "Batch size" (set! batch-size (string->number n))]
+ [("--verbose") "Verbose output" (set! verbose? #t)])
 
-  (command-line
-   #:program "lumina classify"
-   #:once-each
-   [("--db") path "Path to SQLite database"
-    (set! db-path path)]
-   [("--dry-run") "Do not write classification results"
-    (set! dry-run? #t)]
-   [("--verbose") "Verbose output"
-    (set! verbose? #t)])
+;; -------------------------------
+;; DB
+;; -------------------------------
 
-  (classify-config db-path dry-run? verbose?))
+(define conn (sqlite3-connect #:database "lumina.db"))
 
-;; --------------------------------------------------
-;; Database
-;; --------------------------------------------------
+(execute-sql-file! conn "schemas/db/classification.sql")
 
-(define (open-db db-path)
-  (sqlite3-connect #:database db-path
-                   #:mode 'create))
+;; -------------------------------
+;; Load candidates
+;; -------------------------------
 
-;; --------------------------------------------------
-;; Main classify entry point
-;; --------------------------------------------------
+(define rows
+  (query-rows conn
+              "SELECT f.hash, fs.source_path, f.size_bytes
+     FROM files f
+     JOIN file_sources fs ON fs.hash = f.hash
+     WHERE f.hash NOT IN (
+       SELECT hash FROM document_classification
+     )
+     GROUP BY f.hash"))
 
-(define (run-classify config)
-  (define conn (open-db (classify-config-db-path config)))
+(define candidates
+  (if random?
+      (shuffle rows)
+      rows))
 
-  ;; Ensure classification schema exists
-  (execute-sql-file! conn "schemas/db/classification.sql")
+(define selected
+  (if limit
+      (take candidates (min limit (length candidates)))
+      candidates))
 
-  (when (classify-config-verbose? config)
-    (printf "Classification schema initialized.\n"))
+;; -------------------------------
+;; Snippet extraction
+;; -------------------------------
 
-  ;; Placeholder: real classification logic goes here
+(define (read-snippet path)
+  (with-handlers ([exn:fail? (λ (_) "")])
+    (call-with-input-file path
+      (λ (in)
+        (bytes->string/utf-8
+         (read-bytes 4096 in)))
+      #:mode 'binary)))
 
-  (disconnect conn)
+;; -------------------------------
+;; Batching
+;; -------------------------------
 
-  (when (classify-config-verbose? config)
-    (printf "Classification finished.\n")))
+(define (chunk-list lst n)
+  (if (null? lst)
+      '()
+      (cons (take lst (min n (length lst)))
+            (chunk-list (drop lst (min n (length lst))) n))))
 
-;; --------------------------------------------------
-;; Program entry
-;; --------------------------------------------------
+(define batches
+  (chunk-list selected batch-size))
 
-(module+ main
-  (define config (parse-classify-args))
-  (run-classify config))
+(define system-prompt
+  (file->string "prompts/classify.system.txt"))
+
+(define api-key (get-api-key))
+
+(for ([batch batches])
+  (when verbose?
+    (printf "Classifying batch of ~a\n" (length batch)))
+
+  (define docs
+    (for/list ([row batch])
+      (match row
+        [(vector file-hash path size)
+         (hash
+          'hash file-hash
+          'filename (path->string (file-name-from-path path))
+          'size_bytes size
+          'snippet (read-snippet path))])))
+
+  (define payload
+    (hash 'documents docs))
+
+  (when (not dry-run?)
+    (let ([ai-result
+       (gemini-classify-batch
+        api-key
+        system-prompt
+        "schemas/ai/classification.schema.json"
+        payload)])
+  (when verbose?
+    (printf "AI result:\n~a\n\n" ai-result)))))
+
+    (disconnect conn)
+    
