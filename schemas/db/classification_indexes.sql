@@ -6,10 +6,6 @@ CREATE INDEX IF NOT EXISTS idx_document_classification_type
 CREATE INDEX IF NOT EXISTS idx_document_classification_confidence
   ON document_classification(confidence);
 
--- Speed up reprocessing and auditing
-CREATE INDEX IF NOT EXISTS idx_document_classification_method
-  ON document_classification(method);
-
 -- Speed up time-based operations (reclassification, audits)
 CREATE INDEX IF NOT EXISTS idx_document_classification_classified_at
   ON document_classification(classified_at);

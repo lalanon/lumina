@@ -73,6 +73,21 @@
          (read-bytes 4096 in)))
       #:mode 'binary)))
 
+;; --------------------------------
+;; Insert classification result
+;; --------------------------------
+(define (insert-classification! conn file-hash document-type)
+  (query-exec
+   conn
+   "INSERT OR REPLACE INTO document_classification
+      (hash, document_type, confidence, classified_at, model, notes)
+    VALUES (?, ?, ?, CURRENT_TIMESTAMP, ?, ?)"
+   file-hash
+   document-type
+   0.90                       ; default confidence for v1
+   "gemini-3-flash-preview"
+   "ai-classified"))
+
 ;; -------------------------------
 ;; Batching
 ;; -------------------------------
@@ -110,13 +125,25 @@
 
   (when (not dry-run?)
     (let ([ai-result
-       (gemini-classify-batch
-        api-key
-        system-prompt
-        "schemas/ai/classification.schema.json"
-        payload)])
-  (when verbose?
-    (printf "AI result:\n~a\n\n" ai-result)))))
+           (gemini-classify-batch
+            api-key
+            system-prompt
+            "schemas/ai/classification.schema.json"
+            payload)])
+      (when verbose?
+        (printf "AI result:\n~a\n\n" ai-result))
 
-    (disconnect conn)
-    
+      ;; Persist results
+      (for ([entry ai-result])
+        (define file-hash (hash-ref entry 'hash))
+        (define doc-type
+          (let ([v (hash-ref entry 'classification)])
+            (if (symbol? v) (symbol->string v) v)))
+
+        (when (not dry-run?)
+          (insert-classification!
+           conn
+           file-hash
+           doc-type))))))
+
+(disconnect conn)
