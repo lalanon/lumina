@@ -108,7 +108,7 @@
 
 (for ([batch batches])
   (when verbose?
-    (printf "Classifying batch of ~a\n" (length batch)))
+  (printf "Classifying batch of ~a documents...\n" (length batch)))
 
   (define docs
     (for/list ([row batch])
@@ -145,5 +145,25 @@
            conn
            file-hash
            doc-type))))))
+
+;; --------------------------------
+;; Classification summary
+;; --------------------------------
+(define (print-classification-summary conn)
+  (define rows
+    (query-rows
+     conn
+     "SELECT document_type, COUNT(*)
+      FROM document_classification
+      GROUP BY document_type"))
+
+  (printf "\nClassification summary:\n")
+  (for ([row rows])
+    (match row
+      [(vector doc-type count)
+       (printf "  ~a: ~a\n" doc-type count)])))
+
+(when (not dry-run?) ;; (when (and (not dry-run?) verbose?)
+  (print-classification-summary conn))
 
 (disconnect conn)
