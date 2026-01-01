@@ -21,46 +21,25 @@
     "experimental",
     "superhero",
     "manga",
-    "graphic-novel"
+    "graphic-novel",
+    "romantic-fantasy",
+    "romantic-suspense"
   ],
   "topic": [
-    "harmony",
-    "counterpoint",
-    "analysis",
-    "composition",
-    "orchestration",
-    "conducting",
-    "ear-training",
-    "sight-singing",
-    "music-theory",
-    "music-history",
-    "music-technology",
-    "sound-recording",
     "programming",
     "algorithms",
     "machine-learning",
     "artificial-intelligence",
-    "data-science",
-    "operating-systems",
-    "databases",
-    "cryptography",
-    "networks",
     "philosophy",
     "ethics",
     "aesthetics",
-    "politics",
-    "history",
-    "mythology",
-    "textiles",
-    "pattern-making",
-    "sewing-machines",
-    "knitting",
-    "embroidery",
-    "language-learning",
-    "linguistics",
-    "comics-history",
-    "sequential-art",
-    "illustration"
+    "gender-studies",
+    "sexuality-studies",
+    "queer-theory",
+    "lgbtq-history",
+    "relationships",
+    "intimacy",
+    "identity-formation"
   ],
   "form": [
     "textbook",
@@ -69,36 +48,26 @@
     "manual",
     "method",
     "workbook",
-    "exercise-book",
-    "etudes",
     "anthology",
     "monograph",
     "essay-collection",
-    "tutorial",
-    "guide",
-    "comic-issue",
-    "magazine-issue"
+    "novel",
+    "short-stories"
   ],
   "level": [
     "beginner",
     "intermediate",
     "advanced",
-    "professional"
+    "academic"
   ],
   "audience": [
-    "children",
-    "young-adult",
     "general",
+    "young-adult",
+    "adult",
     "academic",
-    "professional"
+    "lgbtq"
   ],
   "period": [
-    "ancient",
-    "medieval",
-    "renaissance",
-    "baroque",
-    "classical",
-    "romantic",
     "modern",
     "20th-century",
     "21st-century",
@@ -109,30 +78,28 @@
     "practical",
     "historical",
     "analytical",
-    "comparative",
-    "experimental"
+    "narrative"
   ],
   "tone": [
     "academic",
-    "didactic",
     "accessible",
-    "technical",
-    "critical",
-    "reflective",
-    "humorous"
+    "intimate",
+    "romantic",
+    "dark",
+    "hopeful"
   ],
   "theme": [
     "identity",
     "gender",
     "sexuality",
     "lgbtq",
-    "power",
-    "religion",
-    "myth",
-    "technology",
-    "nature",
-    "society",
-    "culture"
+    "queer",
+    "gay",
+    "same-sex-relationships",
+    "coming-out",
+    "chosen-family",
+    "love",
+    "desire"
   ],
   "language": [
     "en",
@@ -140,9 +107,7 @@
     "de",
     "fr",
     "it",
-    "es",
-    "ru",
-    "el",
-    "la"
+    "es"
   ]
 }
+

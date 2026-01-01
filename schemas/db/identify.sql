@@ -1,4 +1,4 @@
-identified_metadata (
+CREATE TABLE IF NOT EXISTS identified_metadata (
   hash TEXT PRIMARY KEY,
   title TEXT NOT NULL,
   author TEXT,
@@ -14,7 +14,7 @@ identified_metadata (
   token_cost INTEGER
 );
 
-file_tags (
+CREATE TABLE IF NOT EXISTS file_tags (
   hash TEXT NOT NULL,
   tag TEXT NOT NULL,
   PRIMARY KEY (hash, tag)

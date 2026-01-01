@@ -1,30 +1,53 @@
-IDENTIFY DOCUMENT
+You are identifying ONE document.
 
-Hash: {{HASH}}
-Format: {{FORMAT}}
+DOCUMENT HASH (AUTHORITATIVE):
+{{HASH}}
 
-SNIPPET INFORMATION:
-- Snippet size: {{SNIPPET_BYTES}} bytes
-- Snippet format: {{FORMAT}}
-- WARNING: This is NOT a complete file.
-  It is raw, partial data extracted from the beginning of the document.
-  Treat it as incomplete evidence.
-
-FILENAME (UNRELIABLE):
+FILENAME (BASENAME ONLY):
 {{FILENAME}}
 
-FILE CONTENT SNIPPET (BASE64 OR TEXT):
-{{SNIPPET_DATA}}
+TEXT SNIPPET:
+{{SNIPPET}}
 
-ALLOWED TAXONOMY PATHS:
+TAXONOMY (JSON):
 {{TAXONOMY_JSON}}
 
-ALLOWED TAG PREFIXES:
+ALLOWED TAGS (JSON):
 {{ALLOWED_TAGS_JSON}}
 
-REQUIRED OUTPUT:
-- Return a single JSON object
-- Must conform EXACTLY to the provided Identify Output Schema
-- Use null for unknown values
-- Include warnings where appropriate
+TASK:
+Identify this document conservatively.
+
+If possible:
+- identify title, author, series, volume
+- determine work_type
+- assign root_category and second_level_category from taxonomy
+- assign relevant tags (e.g. genre, theme, audience)
+
+If taxonomy or tags cannot be assigned confidently, use null.
+
+OUTPUT FORMAT (EXACT):
+Return a JSON array with ONE object.
+
+EXAMPLE:
+[
+  {
+    "hash": "{{HASH}}",
+    "status": "identified",
+    "confidence": 0.82,
+    "work_type": "book",
+    "title": "Example Title",
+    "author": "Example Author",
+    "series": null,
+    "volume": null,
+    "isbn": null,
+    "language": "en",
+    "root_category": "Literature (Fiction)",
+    "second_level_category": "Romance",
+    "tags": ["romance", "lgbtq", "gay"],
+    "reasoning": "Clear title and author, genre inferred from content and theme.",
+    "model": null,
+    "token_cost": null
+  }
+]
 

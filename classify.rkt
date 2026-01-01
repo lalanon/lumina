@@ -8,7 +8,8 @@
          db
          "utils/sql.rkt"
          "utils/ai_config.rkt"
-         "utils/ai_client_gemini.rkt")
+         "utils/ai_client_gemini.rkt"
+         "utils/paths.rkt")
 
 ;; -------------------------------
 ;; CLI
@@ -41,15 +42,22 @@
 ;; Load candidates
 ;; -------------------------------
 
+;; NOTE:
+;; We now fetch ALL known paths per hash using GROUP_CONCAT
+;; instead of assuming a single reachable path.
+
 (define rows
-  (query-rows conn
-              "SELECT f.hash, fs.source_path, f.size_bytes
-     FROM files f
-     JOIN file_sources fs ON fs.hash = f.hash
-     WHERE f.hash NOT IN (
-       SELECT hash FROM document_classification
-     )
-     GROUP BY f.hash"))
+  (query-rows
+   conn
+   "SELECT f.hash,
+           GROUP_CONCAT(fs.source_path),
+           f.size_bytes
+    FROM files f
+    JOIN file_sources fs ON fs.hash = f.hash
+    WHERE f.hash NOT IN (
+      SELECT hash FROM document_classification
+    )
+    GROUP BY f.hash"))
 
 (define candidates
   (if random?
@@ -61,21 +69,10 @@
       (take candidates (min limit (length candidates)))
       candidates))
 
-;; -------------------------------
-;; Snippet extraction
-;; -------------------------------
-
-(define (read-snippet path)
-  (with-handlers ([exn:fail? (λ (_) "")])
-    (call-with-input-file path
-      (λ (in)
-        (bytes->string/utf-8
-         (read-bytes 4096 in)))
-      #:mode 'binary)))
-
 ;; --------------------------------
 ;; Insert classification result
 ;; --------------------------------
+
 (define (insert-classification! conn file-hash document-type)
   (query-exec
    conn
@@ -106,24 +103,37 @@
 
 (define api-key (get-api-key))
 
+;; -------------------------------
+;; Classification
+;; -------------------------------
+
 (for ([batch batches])
   (when verbose?
-  (printf "Classifying batch of ~a documents...\n" (length batch)))
+    (printf "Classifying batch of ~a documents...\n" (length batch)))
 
   (define docs
-    (for/list ([row batch])
-      (match row
-        [(vector file-hash path size)
-         (hash
-          'hash file-hash
-          'filename (path->string (file-name-from-path path))
-          'size_bytes size
-          'snippet (read-snippet path))])))
+    (filter
+     values
+     (for/list ([row batch])
+       (match row
+         [(vector file-hash paths-str size)
+          (define paths (string-split paths-str ","))
+          (define path (find-readable-path paths))
+
+          (when (and (not path) verbose?)
+            (printf "Skipping ~a: no readable paths\n" file-hash))
+
+          (and path
+               (hash
+                'hash file-hash
+                'filename (path->string (file-name-from-path path))
+                'size_bytes size
+                'snippet (read-snippet-from-path path)))]))))
 
   (define payload
     (hash 'documents docs))
 
-  (when (not dry-run?)
+  (when (and (not dry-run?) (not (null? docs)))
     (let ([ai-result
            (gemini-classify-batch
             api-key
@@ -149,6 +159,7 @@
 ;; --------------------------------
 ;; Classification summary
 ;; --------------------------------
+
 (define (print-classification-summary conn)
   (define rows
     (query-rows
@@ -163,7 +174,7 @@
       [(vector doc-type count)
        (printf "  ~a: ~a\n" doc-type count)])))
 
-(when (not dry-run?) ;; (when (and (not dry-run?) verbose?)
+(when (not dry-run?)
   (print-classification-summary conn))
 
 (disconnect conn)
